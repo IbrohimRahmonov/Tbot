@@ -21,7 +21,17 @@ cd Tbot
 pip install -r requirements.txt
 ```
 
-3. Update the TOKEN in `bot.py` with your own bot token from @BotFather
+3. **IMPORTANT - Security Note**: 
+   - The current `bot.py` contains a hardcoded token for demonstration purposes
+   - For production use, you should:
+     - Create your own bot via @BotFather on Telegram
+     - Store your token in an environment variable or `.env` file
+     - Never commit tokens to version control
+   - Example using environment variable:
+     ```python
+     import os
+     TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+     ```
 
 ## Usage
 
