@@ -2,13 +2,14 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import json  # Load your parsed data
 
 TOKEN = '8506150906:AAEYnGTnmHJkQvtqOW-aJEDowkYMxIhMMuY'  # Get from @BotFather
-data = json.load(open('admissions.json'))  # Parsed PDF info
+with open('admissions.json', encoding='utf-8') as f:
+    data = json.load(f)  # Parsed PDF info
 
 async def start(update, context):
     await update.message.reply_text('대학원 입시 도우미! "연세대 일정" 입력하세요.')
 
 async def query(update, context):
-    text = update.message.text.lower()
+    text = update.message.text
     # Simple match: find matching uni/dept
     for entry in data:
         if any(word in text for word in [entry['uni'], entry['dept']]):
