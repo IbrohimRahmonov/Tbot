@@ -5,7 +5,8 @@ Test script for bot functionality without running the actual Telegram bot
 import json
 
 # Load data
-data = json.load(open('admissions.json', encoding='utf-8'))
+with open('admissions.json', encoding='utf-8') as f:
+    data = json.load(f)
 
 def test_query(text):
     """Simulate the query function logic"""

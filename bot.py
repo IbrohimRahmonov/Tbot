@@ -1,9 +1,11 @@
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import json
+import os
 
 # Load your parsed data
-TOKEN = '8506150906:AAEYnGTnmHJkQvtqOW-aJEDowkYMxIhMMuY'
-data = json.load(open('admissions.json', encoding='utf-8'))
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8506150906:AAEYnGTnmHJkQvtqOW-aJEDowkYMxIhMMuY')
+with open('admissions.json', encoding='utf-8') as f:
+    data = json.load(f)
 
 async def start(update, context):
     await update.message.reply_text('대학원 입시 도우미! "연세대 일정" 입력하세요.')
@@ -37,18 +39,18 @@ async def query(update, context):
         # Check for various query patterns
         if '일정' in text or 'schedule' in text:
             if uni_match:
-                results.append(f"**{entry['university']} {entry['department']}**\n{entry['schedule']}")
+                results.append(f"<b>{entry['university']} {entry['department']}</b>\n{entry['schedule']}")
         elif '요구사항' in text or 'requirements' in text or '조건' in text:
             if uni_match:
-                results.append(f"**{entry['university']} {entry['department']}**\n요구사항: {entry['requirements']}")
+                results.append(f"<b>{entry['university']} {entry['department']}</b>\n요구사항: {entry['requirements']}")
         elif '홈페이지' in text or 'website' in text:
             if uni_match:
-                results.append(f"**{entry['university']} {entry['department']}**\n홈페이지: {entry['website']}")
+                results.append(f"<b>{entry['university']} {entry['department']}</b>\n홈페이지: {entry['website']}")
         else:
             # General search - check if text contains university or department name
             if uni_match or dept_match:
                 results.append(
-                    f"**{entry['university']} {entry['department']}**\n"
+                    f"<b>{entry['university']} {entry['department']}</b>\n"
                     f"일정:\n{entry['schedule']}\n\n"
                     f"요구사항: {entry['requirements']}\n"
                     f"홈페이지: {entry['website']}"
@@ -56,7 +58,7 @@ async def query(update, context):
     
     if results:
         response = "\n\n---\n\n".join(results)
-        await update.message.reply_text(response)
+        await update.message.reply_text(response, parse_mode='HTML')
     else:
         await update.message.reply_text(
             '검색 결과가 없습니다. 다른 대학명이나 학과명을 입력해주세요.\n'

@@ -15,7 +15,16 @@
 pip install -r requirements.txt
 ```
 
-2. 봇 실행:
+2. 환경 변수 설정:
+```bash
+# .env.example을 .env로 복사
+cp .env.example .env
+
+# .env 파일을 열어 Telegram 봇 토큰 설정
+# TELEGRAM_BOT_TOKEN=your_actual_token_here
+```
+
+3. 봇 실행:
 ```bash
 python bot.py
 ```
