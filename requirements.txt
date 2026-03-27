@@ -1,0 +1,6 @@
+streamlit
+pandas
+python-docx
+docxtpl
+jinja2
+lxml
