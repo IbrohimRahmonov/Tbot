@@ -13,12 +13,14 @@ from docxtpl import DocxTemplate
 DB_PATH = "clients.db"
 TEMPLATE_PATH = "execution_petition_TEMPLATE.docx"
 
-
 st.set_page_config(
     page_title="Execution Petition Manager",
     page_icon="⚖️",
     layout="wide",
 )
+
+# Visible stamp so you know Streamlit Cloud is running the latest commit
+st.info("APP VERSION: 2026-03-27 v4 — form_submit_button present")
 
 
 def get_connection() -> sqlite3.Connection:
@@ -203,10 +205,9 @@ page = st.sidebar.radio(
 
 if page == "📋 Client Table":
     st.title("📋 Client Case Table")
-
     search = st.text_input("🔍 Search by name, case number, or status", "")
-
     df = load_clients(search)
+
     if df.empty:
         st.info("No clients found. Add a new case from the sidebar.")
     else:
@@ -227,19 +228,8 @@ if page == "📋 Client Table":
                 return "—"
 
         df["⏳ Urgency"] = df["filing_deadline"].apply(urgency)
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
-        display_cols = [
-            "case_number",
-            "petitioner_name",
-            "respondent_name",
-            "filing_deadline",
-            "⏳ Urgency",
-            "status",
-            "execution_mode",
-        ]
-        st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
-
-        st.markdown("---")
         with st.expander("🗑️ Delete a Case"):
             case_ids = df[["id", "case_number", "petitioner_name"]].copy()
             case_ids["label"] = (
@@ -256,35 +246,22 @@ elif page == "➕ Add New Case":
     st.title("➕ Add New Client Case")
 
     with st.form("new_case_form", clear_on_submit=True):
-        st.subheader("📝 Case Info")
-        c1, c2 = st.columns(2)
-        case_number = c1.text_input("Case Number *", placeholder="FAM-2026-004")
-        prepared_by = c2.text_input("Prepared By *", placeholder="Your name")
-        status = c1.selectbox("Status", ["Active", "Completed", "On Hold"])
-        filing_deadline = c2.date_input("Filing Deadline *", min_value=date.today())
+        case_number = st.text_input("Case Number *")
+        prepared_by = st.text_input("Prepared By *")
+        status = st.selectbox("Status", ["Active", "Completed", "On Hold"])
+        filing_deadline = st.date_input("Filing Deadline *", min_value=date.today())
 
-        st.subheader("👩 Petitioner (Decree Holder)")
-        c3, c4 = st.columns(2)
-        petitioner_name = c3.text_input("Full Name *")
-        petitioner_address = c4.text_input("Address *")
+        petitioner_name = st.text_input("Petitioner Name *")
+        petitioner_address = st.text_input("Petitioner Address *")
+        respondent_name = st.text_input("Respondent Name *")
+        respondent_address = st.text_input("Respondent Address *")
 
-        st.subheader("👨 Respondent (Judgment Debtor)")
-        c5, c6 = st.columns(2)
-        respondent_name = c5.text_input("Full Name *")
-        respondent_address = c6.text_input("Address *")
+        marriage_date = st.date_input("Date of Marriage")
+        decree_date = st.date_input("Date of Divorce Decree")
 
-        st.subheader("📅 Marriage & Decree")
-        c7, c8 = st.columns(2)
-        marriage_date = c7.date_input("Date of Marriage")
-        decree_date = c8.date_input("Date of Divorce Decree")
-
-        st.subheader("⚖️ Execution Details")
-        children_info = st.text_input(
-            "Children Info", placeholder="2 children: Ali (7), Sara (5)"
-        )
-        c9, c10 = st.columns(2)
-        decree_amount = c9.text_input("Relief / Amount Granted")
-        court_costs = c10.text_input("Court Costs Allowed")
+        children_info = st.text_input("Children Info")
+        decree_amount = st.text_input("Relief / Amount Granted")
+        court_costs = st.text_input("Court Costs Allowed")
         execution_mode = st.selectbox(
             "Mode of Execution",
             [
@@ -295,41 +272,40 @@ elif page == "➕ Add New Case":
             ],
         )
 
+        # IMPORTANT: submit button must be INSIDE the form
         submitted = st.form_submit_button("💾 Save Case", type="primary")
-        if submitted:
-            if not all([case_number, petitioner_name, respondent_name, prepared_by]):
-                st.error("Please fill in all required (*) fields.")
-            else:
-                try:
-                    add_client(
-                        {
-                            "case_number": case_number,
-                            "petitioner_name": petitioner_name,
-                            "petitioner_address": petitioner_address,
-                            "respondent_name": respondent_name,
-                            "respondent_address": respondent_address,
-                            "marriage_date": str(marriage_date),
-                            "decree_date": str(decree_date),
-                            "children_info": children_info,
-                            "decree_amount": decree_amount,
-                            "court_costs": court_costs,
-                            "execution_mode": execution_mode,
-                            "filing_deadline": str(filing_deadline),
-                            "prepared_by": prepared_by,
-                            "status": status,
-                        }
-                    )
-                    st.success(f"✅ Case {case_number} saved successfully!")
-                except Exception as e:
-                    if "UNIQUE" in str(e).upper():
-                        st.error(f"Case number {case_number} already exists.")
-                    else:
-                        st.error(f"Error: {e}")
+
+    if submitted:
+        if not all([case_number, petitioner_name, respondent_name, prepared_by]):
+            st.error("Please fill in all required (*) fields.")
+        else:
+            try:
+                add_client(
+                    {
+                        "case_number": case_number,
+                        "petitioner_name": petitioner_name,
+                        "petitioner_address": petitioner_address,
+                        "respondent_name": respondent_name,
+                        "respondent_address": respondent_address,
+                        "marriage_date": str(marriage_date),
+                        "decree_date": str(decree_date),
+                        "children_info": children_info,
+                        "decree_amount": decree_amount,
+                        "court_costs": court_costs,
+                        "execution_mode": execution_mode,
+                        "filing_deadline": str(filing_deadline),
+                        "prepared_by": prepared_by,
+                        "status": status,
+                    }
+                )
+                st.success(f"✅ Case {case_number} saved successfully!")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
 elif page == "📄 Generate Document":
     st.title("📄 Generate Execution Petition")
-
     df = load_clients()
+
     if df.empty:
         st.warning("No cases in the database. Please add a case first.")
     else:
@@ -340,29 +316,9 @@ elif page == "📄 Generate Document":
             + " vs "
             + df["respondent_name"]
         )
-        selected_label = st.selectbox(
-            "Select a case to generate document for:",
-            df["label"].tolist(),
-        )
+        selected_label = st.selectbox("Select a case:", df["label"].tolist())
         selected_row = df[df["label"] == selected_label].iloc[0].to_dict()
 
-        st.markdown("### 📋 Case Preview")
-        preview_cols = {
-            "Case Number": selected_row.get("case_number"),
-            "Petitioner": selected_row.get("petitioner_name"),
-            "Respondent": selected_row.get("respondent_name"),
-            "Decree Date": selected_row.get("decree_date"),
-            "Filing Deadline": selected_row.get("filing_deadline"),
-            "Mode of Execution": selected_row.get("execution_mode"),
-            "Status": selected_row.get("status"),
-        }
-
-        for k, v in preview_cols.items():
-            c1, c2 = st.columns([1, 2])
-            c1.markdown(f"**{k}**")
-            c2.markdown(v or "—")
-
-        st.markdown("---")
         if st.button("⬇️ Generate & Download Document", type="primary"):
             with st.spinner("Generating document..."):
                 doc_bytes = generate_doc(selected_row)
