@@ -10,9 +10,9 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 from docxtpl import DocxTemplate
 
-# ───────────────────────────── CONFIG ─────────────────────────────
 DB_PATH = "clients.db"
 TEMPLATE_PATH = "execution_petition_TEMPLATE.docx"
+
 
 st.set_page_config(
     page_title="Execution Petition Manager",
@@ -20,36 +20,38 @@ st.set_page_config(
     layout="wide",
 )
 
-# ─────────────────────── DATABASE HELPERS ────────────────────────
+
 def get_connection() -> sqlite3.Connection:
     return sqlite3.connect(DB_PATH)
 
 
 def init_db() -> None:
     conn = get_connection()
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            case_number TEXT UNIQUE,
-            petitioner_name TEXT,
-            petitioner_address TEXT,
-            respondent_name TEXT,
-            respondent_address TEXT,
-            marriage_date TEXT,
-            decree_date TEXT,
-            children_info TEXT,
-            decree_amount TEXT,
-            court_costs TEXT,
-            execution_mode TEXT,
-            filing_deadline TEXT,
-            prepared_by TEXT,
-            status TEXT DEFAULT "Active"
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_number TEXT UNIQUE,
+                petitioner_name TEXT,
+                petitioner_address TEXT,
+                respondent_name TEXT,
+                respondent_address TEXT,
+                marriage_date TEXT,
+                decree_date TEXT,
+                children_info TEXT,
+                decree_amount TEXT,
+                court_costs TEXT,
+                execution_mode TEXT,
+                filing_deadline TEXT,
+                prepared_by TEXT,
+                status TEXT DEFAULT "Active"
+            )
+            """
         )
-        """
-    )
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def load_clients(search: str = "") -> pd.DataFrame:
@@ -64,12 +66,10 @@ def load_clients(search: str = "") -> pd.DataFrame:
                OR status LIKE ?
             """
             s = f"%{search}%"
-            df = pd.read_sql_query(query, conn, params=(s, s, s, s))
-        else:
-            df = pd.read_sql_query(
-                "SELECT * FROM clients ORDER BY filing_deadline ASC", conn
-            )
-        return df
+            return pd.read_sql_query(query, conn, params=(s, s, s, s))
+        return pd.read_sql_query(
+            "SELECT * FROM clients ORDER BY filing_deadline ASC", conn
+        )
     finally:
         conn.close()
 
@@ -106,9 +106,7 @@ def delete_client(case_id: int) -> None:
         conn.close()
 
 
-# ───────────────────── WORD TEMPLATE HELPERS ─────────────────────
 def ensure_template() -> None:
-    """Create the Word template if it doesn't exist."""
     if os.path.exists(TEMPLATE_PATH):
         return
 
@@ -116,14 +114,14 @@ def ensure_template() -> None:
     doc.styles["Normal"].font.name = "Times New Roman"
     doc.styles["Normal"].font.size = Pt(11)
 
-    t = doc.add_heading("EXECUTION PETITION", 0)
-    t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title = doc.add_heading("EXECUTION PETITION", 0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    s = doc.add_paragraph("IN THE FAMILY COURT")
-    s.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    court = doc.add_paragraph("IN THE FAMILY COURT")
+    court.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    s2 = doc.add_paragraph("Case No: {{case_number}}")
-    s2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    case_no = doc.add_paragraph("Case No: {{case_number}}")
+    case_no.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     doc.add_paragraph("")
     doc.add_heading("PARTIES", level=1)
@@ -132,9 +130,9 @@ def ensure_template() -> None:
     p.add_run("Decree Holder (Petitioner): ").bold = True
     p.add_run("{{petitioner_name}}, residing at {{petitioner_address}}")
 
-    p2 = doc.add_paragraph()
-    p2.add_run("Judgment Debtor (Respondent): ").bold = True
-    p2.add_run("{{respondent_name}}, residing at {{respondent_address}}")
+    r = doc.add_paragraph()
+    r.add_run("Judgment Debtor (Respondent): ").bold = True
+    r.add_run("{{respondent_name}}, residing at {{respondent_address}}")
 
     doc.add_paragraph("")
     doc.add_heading("PARTICULARS OF EXECUTION", level=1)
@@ -159,7 +157,6 @@ def ensure_template() -> None:
         row = table.rows[i]
         row.cells[0].text = label
         row.cells[1].text = value
-        # Make label bold (best effort)
         if row.cells[0].paragraphs and row.cells[0].paragraphs[0].runs:
             row.cells[0].paragraphs[0].runs[0].bold = True
 
@@ -185,7 +182,6 @@ def generate_doc(case: dict) -> bytes:
     ensure_template()
     tpl = DocxTemplate(TEMPLATE_PATH)
 
-    # Ensure blank-ish values render nicely
     context = {k: (v if v not in (None, "") else "-") for k, v in case.items()}
     context["today_date"] = str(date.today())
 
@@ -196,33 +192,21 @@ def generate_doc(case: dict) -> bytes:
     return buf.read()
 
 
-# ───────────────────────────── INIT ──────────────────────────────
 init_db()
 ensure_template()
 
-# ──────────────────────────── SIDEBAR ────────────────────────────
-st.sidebar.image("https://img.icons8.com/color/96/scales--v1.png", width=60)
 st.sidebar.title("⚖️ Petition Manager")
 page = st.sidebar.radio(
     "Navigate",
     ["📋 Client Table", "➕ Add New Case", "📄 Generate Document"],
 )
-st.sidebar.markdown("---")
-st.sidebar.caption("Built for legal document automation")
 
-# ───────────────────── PAGE 1 — CLIENT TABLE ─────────────────────
 if page == "📋 Client Table":
     st.title("📋 Client Case Table")
 
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        search = st.text_input("🔍 Search by name, case number, or status", "")
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.button("🔄 Refresh")
+    search = st.text_input("🔍 Search by name, case number, or status", "")
 
     df = load_clients(search)
-
     if df.empty:
         st.info("No clients found. Add a new case from the sidebar.")
     else:
@@ -255,16 +239,6 @@ if page == "📋 Client Table":
         ]
         st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
 
-        st.markdown(f"**Total cases: {len(df)}**")
-
-        c1, c2, c3 = st.columns(3)
-        overdue = df[df["⏳ Urgency"].str.contains("OVERDUE|Urgent", regex=True)].shape[0]
-        this_week = df[df["⏳ Urgency"] == "🟠 This Week"].shape[0]
-        active = df[df["status"] == "Active"].shape[0]
-        c1.metric("🔴 Urgent / Overdue", overdue)
-        c2.metric("🟠 Due This Week", this_week)
-        c3.metric("✅ Active Cases", active)
-
         st.markdown("---")
         with st.expander("🗑️ Delete a Case"):
             case_ids = df[["id", "case_number", "petitioner_name"]].copy()
@@ -278,7 +252,6 @@ if page == "📋 Client Table":
                 st.success(f"Deleted: {chosen}")
                 st.rerun()
 
-# ───────────────────── PAGE 2 — ADD NEW CASE ─────────────────────
 elif page == "➕ Add New Case":
     st.title("➕ Add New Client Case")
 
@@ -297,8 +270,8 @@ elif page == "➕ Add New Case":
 
         st.subheader("👨 Respondent (Judgment Debtor)")
         c5, c6 = st.columns(2)
-        respondent_name = c5.text_input("Full Name *", key="resp_name")
-        respondent_address = c6.text_input("Address *", key="resp_addr")
+        respondent_name = c5.text_input("Full Name *")
+        respondent_address = c6.text_input("Address *")
 
         st.subheader("📅 Marriage & Decree")
         c7, c8 = st.columns(2)
@@ -310,12 +283,8 @@ elif page == "➕ Add New Case":
             "Children Info", placeholder="2 children: Ali (7), Sara (5)"
         )
         c9, c10 = st.columns(2)
-        decree_amount = c9.text_input(
-            "Relief / Amount Granted", placeholder="5,000,000 UZS/month"
-        )
-        court_costs = c10.text_input(
-            "Court Costs Allowed", placeholder="250,000 UZS"
-        )
+        decree_amount = c9.text_input("Relief / Amount Granted")
+        court_costs = c10.text_input("Court Costs Allowed")
         execution_mode = st.selectbox(
             "Mode of Execution",
             [
@@ -351,14 +320,12 @@ elif page == "➕ Add New Case":
                         }
                     )
                     st.success(f"✅ Case {case_number} saved successfully!")
-                    st.balloons()
                 except Exception as e:
                     if "UNIQUE" in str(e).upper():
                         st.error(f"Case number {case_number} already exists.")
                     else:
                         st.error(f"Error: {e}")
 
-# ─────────────────── PAGE 3 — GENERATE DOCUMENT ──────────────────
 elif page == "📄 Generate Document":
     st.title("📄 Generate Execution Petition")
 
@@ -374,7 +341,8 @@ elif page == "📄 Generate Document":
             + df["respondent_name"]
         )
         selected_label = st.selectbox(
-            "Select a case to generate document for:", df["label"].tolist()
+            "Select a case to generate document for:",
+            df["label"].tolist(),
         )
         selected_row = df[df["label"] == selected_label].iloc[0].to_dict()
 
@@ -399,10 +367,7 @@ elif page == "📄 Generate Document":
             with st.spinner("Generating document..."):
                 doc_bytes = generate_doc(selected_row)
 
-            filename = (
-                f"petition_{str(selected_row['case_number']).replace('-', '_')}.docx"
-            )
-
+            filename = f"petition_{str(selected_row['case_number']).replace('-', '_')}.docx"
             st.download_button(
                 label="📥 Click here to download",
                 data=doc_bytes,
@@ -410,7 +375,3 @@ elif page == "📄 Generate Document":
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
             st.success(f"✅ Document ready: {filename}")
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"\
-            )\
-            st.success(f"\'e2\'9c\'85 Document ready: \{filename\}")\
-}
